@@ -3,9 +3,9 @@ const cors = require("cors");
 require("dotenv").config();
 var corsOptions = {
   origin: "*",
-  methods: ["GET", "POST", "PUT"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "ngrok-skip-browser-warning"],
-  optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200,
 };
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
@@ -24,14 +24,21 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 DBConnection();
+// schemas
 require("./models/dbSchema/userSchema");
 require("./models/dbSchema/otpSchema");
 require("./models/dbSchema/labOrders");
 require("./models/dbSchema/NewPatientSchema");
 require("./models/dbSchema/enrollSchema");
+require("./models/dbSchema/doctorsSchema");
+require("./models/dbSchema/serviceSchema");
+
+// routes
 app.use("/api", require("./routes/userRoutes"));
 app.use("/api", require("./routes/patientRoutes"));
 app.use("/api", require("./routes/labOrderRoutes"));
+app.use("/api", require("./routes/doctorRoutes"));
+app.use("/api", require("./routes/serviceRoutes"));
 
 const LabOrdersModel = mongoose.model("LabOrders");
 const NewPatientModel = mongoose.model("Patients");

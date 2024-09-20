@@ -53,7 +53,7 @@ module.exports.LoginUser = async (req, res) => {
     return res.status(200).json({
       status: 200,
       message: "Login Successful",
-      profile: { name: isUser.name, email: isUser.email },
+      profile: { name: isUser.name, email: isUser.email, id: isUser._id },
       accessToken,
     });
   } catch (error) {
