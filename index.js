@@ -52,14 +52,26 @@ app.get("/hello", (req, res) => {
 
 const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
 
-// lab orders
 app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
   const { captcha } = req.body;
   console.log("token_id >> ", req.body.id);
 
   try {
+    // Verify reCAPTCHA
+    const response = await axios.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_SECRET_KEY}&response=${captcha}`
+    );
+
+    if (!response.data.success) {
+      return res.status(400).send({
+        success: false,
+        message: "Captcha verification failed. Please try again.",
+      });
+    }
+
+    // Create the payment intent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: req.body.amount * 100,
+      amount: Math.round(req.body.amount * 100),
       currency: "usd",
       payment_method_data: {
         type: "card",
@@ -69,6 +81,7 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
       return_url: "https://trtpep.com",
     });
 
+    // Save the lab order
     await LabOrdersModel.create({
       firstName: req.body.firstName,
       lastName: req.body.lastName,
@@ -84,39 +97,28 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
       isNewPatient: req.body.isNewPatient,
     });
 
-    const response = await axios.post(
-      `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_SECRET_KEY}&response=${captcha}`
-    );
-
-    if (response.data.success) {
-      // res.send("Human 👨 👩");
-      res.send({
-        success: true,
-        message: "Payment successful",
-        paymentIntent,
-        captchaMessage: "Human",
-      });
-    } else {
-      // res.send("Robot 🤖");
-      res.send({
-        success: true,
-        message: "Payment successful",
-        paymentIntent,
-        captchaMessage: "Robot",
+    res.send({
+      success: true,
+      message: "Payment successful",
+      paymentIntent,
+      captchaMessage: "Human",
+    });
+  } catch (error) {
+    // Check if the error is related to Stripe and handle it
+    if (error.type === "StripeCardError") {
+      return res.status(402).send({
+        success: false,
+        message: error.message || "Your card has insufficient funds.",
       });
     }
 
-    // res.send({
-    //   success: true,
-    //   message: "Payment successful",
-    //   paymentIntent,
-    // });
-  } catch (error) {
-    res.status(400).send({
-      success: false,
-      message: error.message,
-    });
+    // Handle other types of errors
     console.log("create-payment-intent error >> ", error);
+    res.status(500).send({
+      success: false,
+      message:
+        "An error occurred while processing your payment. Please try again.",
+    });
   }
 });
 
