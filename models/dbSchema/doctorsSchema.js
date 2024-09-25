@@ -6,6 +6,7 @@ const EnrollmentSchema = new mongoose.Schema(
     email: { type: String, unique: true, required: true },
     phone: { type: String, required: true },
     password: { type: String, required: true },
+    schedulerUrl: { type: String, required: false },
   },
   {
     collection: "Doctors",

@@ -32,6 +32,7 @@ require("./models/dbSchema/NewPatientSchema");
 require("./models/dbSchema/enrollSchema");
 require("./models/dbSchema/doctorsSchema");
 require("./models/dbSchema/serviceSchema");
+require("./models/dbSchema/appointmentsSchema");
 
 // routes
 app.use("/api", require("./routes/userRoutes"));
@@ -39,6 +40,7 @@ app.use("/api", require("./routes/patientRoutes"));
 app.use("/api", require("./routes/labOrderRoutes"));
 app.use("/api", require("./routes/doctorRoutes"));
 app.use("/api", require("./routes/serviceRoutes"));
+app.use("/api", require("./routes/appointmentRoutes"));
 
 const LabOrdersModel = mongoose.model("LabOrders");
 const NewPatientModel = mongoose.model("Patients");
@@ -48,11 +50,12 @@ app.get("/hello", (req, res) => {
   res.send("Hello World");
 });
 
-const stripe = Stripe(process.env.STRIOE_INTENT_TOKEN);
+const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
 
 // lab orders
 app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
   const { captcha } = req.body;
+  console.log("token_id >> ", req.body.id);
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -63,7 +66,7 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
         card: { token: req.body.id },
       },
       confirm: true,
-      return_url: "https://www.dignitestudios.com",
+      return_url: "https://trtpep.com",
     });
 
     await LabOrdersModel.create({

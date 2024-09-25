@@ -44,6 +44,7 @@ module.exports.CreateService = async (req, res) => {
 module.exports.GetDoctorServices = async (req, res) => {
   try {
     const { doctorId } = req.params;
+    // console.log("doctorId >> ", doctorId);
     const doctorServices = await ServiceModal.find({ doctorId });
     if (doctorServices.length > 0) {
       return res.status(200).send({ message: "", services: doctorServices });

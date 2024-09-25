@@ -6,20 +6,32 @@ const SECRET_KEY = process.env.SECRET_KEY;
 
 module.exports.AddDoctor = async (req, res) => {
   const { name, email, password, phone } = req.body;
-  //   console.log("efefwef >> ", req.body);
   try {
     const userExist = await DoctorsModal.findOne({ email });
     if (userExist) {
       return res.status(200).send({ message: "Email already exists" });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    await DoctorsModal.create({
+
+    const newDoctor = await DoctorsModal.create({
       name,
       email,
       password: hashedPassword,
       phone,
     });
-    res.status(200).send({ message: "User created successfully" });
+
+    const doctorId = newDoctor._id;
+    const schedulerUrl = `https://trtpep-schedular.vercel.app/${doctorId}`;
+
+    const updatedDoctor = await DoctorsModal.findByIdAndUpdate(
+      doctorId,
+      { schedulerUrl },
+      { new: true }
+    );
+
+    res
+      .status(200)
+      .send({ message: "User created successfully", updatedDoctor });
   } catch (error) {
     console.log("register server error >> ", error);
     res.status(500).send({ message: error });

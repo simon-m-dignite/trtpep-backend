@@ -4,6 +4,7 @@ const {
   GetDoctorServices,
   GetAllServices,
   DeleteService,
+  BookAppointment,
 } = require("../controllers/serviceController");
 const router = express.Router();
 
