@@ -57,7 +57,6 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
   console.log("token_id >> ", req.body.id);
 
   try {
-    // Verify reCAPTCHA
     const response = await axios.post(
       `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_SECRET_KEY}&response=${captcha}`
     );
@@ -69,7 +68,6 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
       });
     }
 
-    // Create the payment intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(req.body.amount * 100),
       currency: "usd",
@@ -81,7 +79,6 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
       return_url: "https://trtpep.com",
     });
 
-    // Save the lab order
     await LabOrdersModel.create({
       firstName: req.body.firstName,
       lastName: req.body.lastName,
@@ -104,7 +101,6 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
       captchaMessage: "Human",
     });
   } catch (error) {
-    // Check if the error is related to Stripe and handle it
     if (error.type === "StripeCardError") {
       return res.status(402).send({
         success: false,
@@ -112,7 +108,6 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
       });
     }
 
-    // Handle other types of errors
     console.log("create-payment-intent error >> ", error);
     res.status(500).send({
       success: false,
@@ -122,10 +117,8 @@ app.post("/api/create-payment-intent", cors(corsOptions), async (req, res) => {
   }
 });
 
-// new patient - old patient
 app.post("/api/new-patient", cors(corsOptions), async (req, res) => {
   const { formData, id, amount } = req.body;
-  // console.log("Received data:", req.body.formData.therapyDetails.testosterone);
 
   const {
     therapyDetails,
