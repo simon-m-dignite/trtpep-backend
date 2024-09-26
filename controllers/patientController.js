@@ -275,7 +275,7 @@ module.exports.NewPatient = async (req, res) => {
       cancel_url: "https://trtpep.com/new-patient/failed",
     });
 
-    const newPatient = new NewPatientModel({
+    const newPatient = new NewPatientModel.create({
       therapyDetails: {
         testosterone,
         peptide,
@@ -311,12 +311,10 @@ module.exports.NewPatient = async (req, res) => {
       amount,
     });
 
-    const savedPatient = await newPatient.save();
-
     res.status(200).json({
       success: true,
       message: "Payment Url generated successfully.",
-      data: savedPatient,
+      data: newPatient,
       url: session.url,
     });
   } catch (error) {

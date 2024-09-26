@@ -56,7 +56,7 @@ module.exports.PlaceLabOrder = async (req, res) => {
       cancel_url: "https://trtpep.com/lab-order/failed",
     });
 
-    const labOrder = LabOrdersModel.create({
+    const labOrder = await LabOrdersModel.create({
       firstName,
       lastName,
       email,
@@ -71,13 +71,12 @@ module.exports.PlaceLabOrder = async (req, res) => {
       isNewPatient,
     });
 
-    const savedLabOrder = await labOrder.save();
-
+    // Send the saved lab order data in the response
     res.status(200).send({
       success: true,
-      message: "Payment url generated",
-      url: session.url,
-      data: savedLabOrder,
+      message: "Payment URL generated",
+      url: session.url, // Assuming `session.url` is your payment URL
+      data: labOrder, // The saved lab order document
     });
 
     // Create Payment Intent with Stripe
