@@ -52,6 +52,10 @@ module.exports.PlaceLabOrder = async (req, res) => {
         },
       ],
       mode: "payment",
+      payment_intent_data: {
+        capture_method: "automatic", // or use "manual" if you want to capture later
+        setup_future_usage: "off_session", // Helps trigger 3D Secure when necessary
+      },
       success_url: "https://trtpep.com/lab-order/success",
       cancel_url: "https://trtpep.com/lab-order/failed",
     });
