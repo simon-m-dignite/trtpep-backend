@@ -52,6 +52,7 @@ const PatientSchema = new mongoose.Schema(
     isBillingSameAsShipping: { type: Boolean },
     amount: { type: Number, required: true },
     orderStatus: { type: String, default: "Pending" },
+    payment_status: { type: Boolean, default: false },
   },
   {
     collection: "Patients",

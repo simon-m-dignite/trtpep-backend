@@ -11,7 +11,6 @@ const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
 module.exports.PlaceLabOrder = async (req, res) => {
   const {
     captcha,
-    id,
     amount,
     firstName,
     lastName,
@@ -26,8 +25,6 @@ module.exports.PlaceLabOrder = async (req, res) => {
     isNewPatient,
   } = req.body;
 
-  console.log("token_id >> ", id);
-
   try {
     // Verify Captcha
     const captchaResponse = await axios.post(
@@ -41,20 +38,25 @@ module.exports.PlaceLabOrder = async (req, res) => {
       });
     }
 
-    // Create Payment Intent with Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Amount in cents
-      currency: "usd",
-      payment_method_data: {
-        type: "card",
-        card: { token: id }, // Using token from frontend
-      },
-      automatic_payment_methods: { enabled: true }, // Automatic 3D Secure handling
-      confirm: true, // Immediately confirm the payment
+    const session = await stripe.checkout.sessions.create({
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "Lab Order Form",
+            },
+            unit_amount: Math.round(amount * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: "https://trtpep.com/lab-order/success",
+      cancel_url: "https://trtpep.com/lab-order/failed",
     });
 
-    // Save order to database after successful payment
-    await LabOrdersModel.create({
+    const labOrder = LabOrdersModel.create({
       firstName,
       lastName,
       email,
@@ -69,23 +71,46 @@ module.exports.PlaceLabOrder = async (req, res) => {
       isNewPatient,
     });
 
-    // Send response back to frontend with payment status and client secret
-    res.send({
+    const savedLabOrder = await labOrder.save();
+
+    res.status(200).send({
       success: true,
-      message: "Payment successful",
-      clientSecret: paymentIntent?.client_secret, // Client secret for further confirmation if needed
-      captchaMessage: "Human",
+      message: "Payment url generated",
+      url: session.url,
+      data: savedLabOrder,
     });
+
+    // Create Payment Intent with Stripe
+    // const paymentIntent = await stripe.paymentIntents.create({
+    //   amount: Math.round(amount * 100), // Amount in cents
+    //   currency: "usd",
+    //   payment_method_data: {
+    //     type: "card",
+    //     card: { token: id }, // Using token from frontend
+    //   },
+    //   automatic_payment_methods: { enabled: true }, // Automatic 3D Secure handling
+    //   confirm: true, // Immediately confirm the payment
+    // });
+
+    // Save order to database after successful payment
+
+    // Send response back to frontend with payment status and client secret
+    // res.send({
+    //   success: true,
+    //   message: "Payment successful",
+    //   clientSecret: paymentIntent?.client_secret, // Client secret for further confirmation if needed
+    //   captchaMessage: "Human",
+    // });
   } catch (error) {
     console.error("Error during payment creation >> ", error);
 
     // Handle Stripe-specific errors
-    if (error.type === "StripeCardError") {
-      return res.status(402).send({
-        success: false,
-        message: error.message || "Your card has insufficient funds.",
-      });
-    }
+    // if (error.type === "StripeCardError") {
+    //   return res.status(402).send({
+    //     success: false,
+    //     message: error.message || "Your card has insufficient funds.",
+    //   });
+    // }
 
     // Generic error response
     res.status(500).send({
@@ -197,6 +222,21 @@ module.exports.FilterLabOrders = async (req, res) => {
     res.status(200).json(patients);
   } catch (error) {
     console.error("Error filtering patients:", error);
+    res.status(500).json({ status: 500, message: "Server Error" });
+  }
+};
+
+module.exports.UpdateLabOrderPaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (id) {
+      await LabOrderModel.findByIdAndUpdate({ _id: id, payment_status: true });
+      res.status(200).send({ message: "Success" });
+    } else {
+      res.status(400).send({ message: "Id not found." });
+    }
+  } catch (error) {
+    console.error("Error UpdateNewPatientStatus patients:", error);
     res.status(500).json({ status: 500, message: "Server Error" });
   }
 };

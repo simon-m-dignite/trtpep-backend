@@ -5,6 +5,7 @@ const {
   UpdateLabOrderStatus,
   FilterLabOrders,
   PlaceLabOrder,
+  UpdateLabOrderPaymentStatus,
 } = require("../controllers/labOrderController");
 const router = express.Router();
 const cors = require("cors");
@@ -24,5 +25,11 @@ router.put("/lab-order-status/:orderId", UpdateLabOrderStatus);
 router.get("/filter-lab-orders", FilterLabOrders);
 
 router.post("/create-payment-intent", cors(corsOptions), PlaceLabOrder);
+
+router.put(
+  "/lab/update-status",
+  cors(corsOptions),
+  UpdateLabOrderPaymentStatus
+);
 
 module.exports = router;

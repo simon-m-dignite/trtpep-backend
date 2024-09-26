@@ -9,6 +9,7 @@ const {
   UpdateorderStatus,
   FilterPatients,
   NewPatient,
+  UpdateNewPatientStatus,
 } = require("../controllers/patientController");
 const router = express.Router();
 const cors = require("cors");
@@ -33,5 +34,7 @@ router.put("/update-order-status/:patientId", UpdateorderStatus);
 router.get("/filter-patients", FilterPatients);
 
 router.post("/new-patient", cors(corsOptions), NewPatient);
+
+router.put("/patient/update-status", UpdateNewPatientStatus);
 
 module.exports = router;

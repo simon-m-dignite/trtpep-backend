@@ -211,7 +211,7 @@ module.exports.FilterPatients = async (req, res) => {
 };
 
 module.exports.NewPatient = async (req, res) => {
-  const { formData, id, amount } = req.body;
+  const { formData, amount } = req.body;
 
   const {
     therapyDetails,
@@ -246,15 +246,33 @@ module.exports.NewPatient = async (req, res) => {
 
   try {
     // Create a payment intent with Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: req.body.amount * 100,
-      currency: "usd",
-      payment_method_data: {
-        type: "card",
-        card: { token: req.body.id },
-      },
-      confirm: true,
-      return_url: "https://www.dignitestudios.com",
+    // const paymentIntent = await stripe.paymentIntents.create({
+    //   amount: req.body.amount * 100,
+    //   currency: "usd",
+    //   payment_method_data: {
+    //     type: "card",
+    //     card: { token: req.body.id },
+    //   },
+    //   confirm: true,
+    //   return_url: "https://www.dignitestudios.com",
+    // });
+
+    const session = await stripe.checkout.sessions.create({
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "Patient Form",
+            },
+            unit_amount: Math.round(amount * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: "https://trtpep.com/new-patient/success",
+      cancel_url: "https://trtpep.com/new-patient/failed",
     });
 
     const newPatient = new NewPatientModel({
@@ -295,11 +313,11 @@ module.exports.NewPatient = async (req, res) => {
 
     const savedPatient = await newPatient.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: "Order placed successfully.",
+      message: "Payment Url generated successfully.",
       data: savedPatient,
-      // paymentIntent,
+      url: session.url,
     });
   } catch (error) {
     res.status(400).send({
@@ -307,5 +325,23 @@ module.exports.NewPatient = async (req, res) => {
       message: error.message,
     });
     console.log("new-patient error >> ", error);
+  }
+};
+
+module.exports.UpdateNewPatientStatus = async (req, res) => {
+  try {
+    const { id } = req.body;
+    if (id) {
+      await NewPatientModel.findByIdAndUpdate({
+        _id: id,
+        payment_status: true,
+      });
+      res.status(200).send({ message: "Success" });
+    } else {
+      res.status(400).send({ message: "Id not found." });
+    }
+  } catch (error) {
+    console.error("Error UpdateNewPatientStatus patients:", error);
+    res.status(500).json({ status: 500, message: "Server Error" });
   }
 };
