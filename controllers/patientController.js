@@ -2,6 +2,11 @@ const { useStripe } = require("@stripe/react-stripe-js");
 const mongoose = require("mongoose");
 const PatientModel = mongoose.model("Patients");
 const EnrollmentModel = mongoose.model("EnrolledPatients");
+const NewPatientModel = mongoose.model("Patients");
+require("dotenv").config();
+const Stripe = require("stripe");
+
+const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
 
 module.exports.FetchPatients = async (req, res) => {
   try {
@@ -202,5 +207,105 @@ module.exports.FilterPatients = async (req, res) => {
   } catch (error) {
     console.error("Error filtering patients:", error);
     res.status(500).json({ status: 500, message: "Server Error" });
+  }
+};
+
+module.exports.NewPatient = async (req, res) => {
+  const { formData, id, amount } = req.body;
+
+  const {
+    therapyDetails,
+    labWorkDetails,
+    patientInfo,
+    shippingInfo,
+    billingInfo,
+    isBillingSameAsShipping,
+  } = formData;
+
+  const { testosterone, peptide, hcg, weightLoss } = therapyDetails;
+
+  const { bloodWorkForTestosterone, howDidHear } = labWorkDetails;
+
+  const { firstName, lastName, email, phoneNumber, dob } = patientInfo;
+
+  const {
+    shippingStreetAddress,
+    shippingAddressLine,
+    shippingCity,
+    shippingState,
+    shippingZipCode,
+  } = shippingInfo;
+
+  const {
+    billingStreetAddress,
+    billingAddressLine,
+    billingCity,
+    billingState,
+    billingZipCode,
+  } = billingInfo;
+
+  try {
+    // Create a payment intent with Stripe
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: req.body.amount * 100,
+      currency: "usd",
+      payment_method_data: {
+        type: "card",
+        card: { token: req.body.id },
+      },
+      confirm: true,
+      return_url: "https://www.dignitestudios.com",
+    });
+
+    const newPatient = new NewPatientModel({
+      therapyDetails: {
+        testosterone,
+        peptide,
+        hcg,
+        weightLoss,
+      },
+      labWorkDetails: {
+        bloodWorkForTestosterone,
+        howDidHear,
+      },
+      patientInfo: {
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+        dob,
+      },
+      shippingInfo: {
+        shippingStreetAddress,
+        shippingAddressLine,
+        shippingCity,
+        shippingState,
+        shippingZipCode,
+      },
+      billingInfo: {
+        billingStreetAddress,
+        billingAddressLine,
+        billingCity,
+        billingState,
+        billingZipCode,
+      },
+      isBillingSameAsShipping,
+      amount,
+    });
+
+    const savedPatient = await newPatient.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Order placed successfully.",
+      data: savedPatient,
+      // paymentIntent,
+    });
+  } catch (error) {
+    res.status(400).send({
+      success: false,
+      message: error.message,
+    });
+    console.log("new-patient error >> ", error);
   }
 };

@@ -8,8 +8,17 @@ const {
   SearchPatient,
   UpdateorderStatus,
   FilterPatients,
+  NewPatient,
 } = require("../controllers/patientController");
 const router = express.Router();
+const cors = require("cors");
+
+var corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "ngrok-skip-browser-warning"],
+  optionsSuccessStatus: 200,
+};
 
 router.get("/get-patients", FetchPatients);
 router.get("/get-patient/:id", FetchPatient);
@@ -22,5 +31,7 @@ router.post("/search-patient", SearchPatient);
 router.put("/update-order-status/:patientId", UpdateorderStatus);
 
 router.get("/filter-patients", FilterPatients);
+
+router.post("/new-patient", cors(corsOptions), NewPatient);
 
 module.exports = router;

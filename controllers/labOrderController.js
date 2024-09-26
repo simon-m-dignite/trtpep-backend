@@ -1,6 +1,80 @@
+const { default: axios } = require("axios");
 const mongoose = require("mongoose");
-
 const LabOrderModel = mongoose.model("LabOrders");
+const LabOrdersModel = mongoose.model("LabOrders");
+
+require("dotenv").config();
+const Stripe = require("stripe");
+
+const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
+
+module.exports.PlaceLabOrder = async (req, res) => {
+  const { captcha } = req.body;
+  console.log("token_id >> ", req.body.id);
+
+  try {
+    const response = await axios.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_SECRET_KEY}&response=${captcha}`
+    );
+
+    if (!response.data.success) {
+      return res.status(400).send({
+        success: false,
+        message: "Captcha verification failed. Please try again.",
+      });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(req.body.amount * 100),
+      currency: "usd",
+      payment_method_data: {
+        type: "card",
+        card: { token: req.body.id },
+      },
+      automatic_payment_methods: {
+        enabled: false,
+      },
+      // confirm: true,
+      // return_url: "https://trtpep.com",
+    });
+
+    await LabOrdersModel.create({
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      phone: req.body.phone,
+      date_of_birth: req.body.date_of_birth,
+      shippingState: req.body.shippingState,
+      billingAddress: req.body.billingAddress,
+      billingAddressLine: req.body.billingAddressLine2,
+      city: req.body.city,
+      zipCode: req.body.zipCode,
+      amount: req.body.amount,
+      isNewPatient: req.body.isNewPatient,
+    });
+
+    res.send({
+      success: true,
+      message: "Payment successful",
+      paymentIntent,
+      captchaMessage: "Human",
+    });
+  } catch (error) {
+    if (error.type === "StripeCardError") {
+      return res.status(402).send({
+        success: false,
+        message: error.message || "Your card has insufficient funds.",
+      });
+    }
+
+    console.log("create-payment-intent error >> ", error);
+    // res.status(500).send({
+    //   success: false,
+    //   message:
+    //     "An error occurred while processing your payment. Please try again.",
+    // });
+  }
+};
 
 module.exports.FetchLabOrders = async (req, res) => {
   try {
