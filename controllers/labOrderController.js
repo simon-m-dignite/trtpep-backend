@@ -9,57 +9,77 @@ const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
 
 module.exports.PlaceLabOrder = async (req, res) => {
-  const { captcha } = req.body;
-  console.log("token_id >> ", req.body.id);
+  const {
+    captcha,
+    id,
+    amount,
+    firstName,
+    lastName,
+    email,
+    phone,
+    date_of_birth,
+    shippingState,
+    billingAddress,
+    billingAddressLine2,
+    city,
+    zipCode,
+    isNewPatient,
+  } = req.body;
+
+  console.log("token_id >> ", id);
 
   try {
-    const response = await axios.post(
+    // Verify Captcha
+    const captchaResponse = await axios.post(
       `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_SECRET_KEY}&response=${captcha}`
     );
 
-    if (!response.data.success) {
+    if (!captchaResponse.data.success) {
       return res.status(400).send({
         success: false,
         message: "Captcha verification failed. Please try again.",
       });
     }
 
+    // Create Payment Intent with Stripe
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(req.body.amount * 100),
+      amount: Math.round(amount * 100), // Amount in cents
       currency: "usd",
       payment_method_data: {
         type: "card",
-        card: { token: req.body.id },
+        card: { token: id }, // Using token from frontend
       },
-      automatic_payment_methods: {
-        enabled: false,
-      },
-      // confirm: true,
-      // return_url: "https://trtpep.com",
+      automatic_payment_methods: { enabled: true }, // Automatic 3D Secure handling
+      confirm: true, // Immediately confirm the payment
     });
 
+    // Save order to database after successful payment
     await LabOrdersModel.create({
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
-      phone: req.body.phone,
-      date_of_birth: req.body.date_of_birth,
-      shippingState: req.body.shippingState,
-      billingAddress: req.body.billingAddress,
-      billingAddressLine: req.body.billingAddressLine2,
-      city: req.body.city,
-      zipCode: req.body.zipCode,
-      amount: req.body.amount,
-      isNewPatient: req.body.isNewPatient,
+      firstName,
+      lastName,
+      email,
+      phone,
+      date_of_birth,
+      shippingState,
+      billingAddress,
+      billingAddressLine2,
+      city,
+      zipCode,
+      amount,
+      isNewPatient,
     });
 
+    // Send response back to frontend with payment status and client secret
     res.send({
       success: true,
       message: "Payment successful",
-      paymentIntent,
+      clientSecret: paymentIntent?.client_secret, // Client secret for further confirmation if needed
       captchaMessage: "Human",
     });
   } catch (error) {
+    console.error("Error during payment creation >> ", error);
+
+    // Handle Stripe-specific errors
     if (error.type === "StripeCardError") {
       return res.status(402).send({
         success: false,
@@ -67,12 +87,12 @@ module.exports.PlaceLabOrder = async (req, res) => {
       });
     }
 
-    console.log("create-payment-intent error >> ", error);
-    // res.status(500).send({
-    //   success: false,
-    //   message:
-    //     "An error occurred while processing your payment. Please try again.",
-    // });
+    // Generic error response
+    res.status(500).send({
+      success: false,
+      message:
+        "An error occurred while processing your payment. Please try again.",
+    });
   }
 };
 
