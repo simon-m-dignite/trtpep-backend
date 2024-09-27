@@ -9,7 +9,7 @@ const LabOrderSchema = new mongoose.Schema(
     date_of_birth: { type: String, required: true },
     shippingState: { type: String, required: true },
     billingAddress: { type: String, required: true },
-    billingAddressLine: { type: String, required: true },
+    billingAddressLine: { type: String, required: false, default: "N/A" },
     city: { type: String, required: true },
     zipCode: { type: String, required: true },
     amount: { type: String, required: true },
