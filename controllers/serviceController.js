@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const ServiceModal = mongoose.model("DoctorServices");
+const DoctorsModal = mongoose.model("Doctors");
 
 module.exports.CreateService = async (req, res) => {
   try {
@@ -11,7 +12,7 @@ module.exports.CreateService = async (req, res) => {
       duration,
       timeSlots,
     } = req.body;
-    // console.log("service data >> ", req.body);
+    console.log("service data >> ", req.body);
 
     const isOldService = await ServiceModal.findOne({ serviceSubtitle });
 
@@ -21,16 +22,11 @@ module.exports.CreateService = async (req, res) => {
         .send({ message: "This service is already added!" });
     }
 
-    let servicePrice;
-    if (price == 0 || price == null || price == undefined) {
-      servicePrice = 0;
-    }
-
     await ServiceModal.create({
       doctorId,
       serviceTitle,
       serviceSubtitle,
-      price: servicePrice,
+      price: price || 0,
       duration,
       timeSlots,
     });
@@ -46,8 +42,13 @@ module.exports.GetDoctorServices = async (req, res) => {
     const { doctorId } = req.params;
     // console.log("doctorId >> ", doctorId);
     const doctorServices = await ServiceModal.find({ doctorId });
+    const doctorProfile = await DoctorsModal.findById(doctorId);
     if (doctorServices.length > 0) {
-      return res.status(200).send({ message: "", services: doctorServices });
+      return res.status(200).send({
+        message: "Success",
+        services: doctorServices,
+        doctorEmail: doctorProfile.email,
+      });
     }
 
     res
