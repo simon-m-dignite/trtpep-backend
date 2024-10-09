@@ -98,8 +98,8 @@ module.exports.BookAppointment = async (req, res) => {
   let isTimeslotAvailable = true;
   existingAppointments.forEach((appointment) => {
     if (
-      appointment.timeslot.startTime === timeslot.startTime &&
-      appointment.timeslot.endTime === timeslot.endTime
+      appointment.selectedTime.startTime === selectedTime.startTime &&
+      appointment.selectedTime.endTime === selectedTime.endTime
     ) {
       isTimeslotAvailable = false;
     }
@@ -135,7 +135,7 @@ module.exports.SendEmail = async (req, res) => {
   const mailOptions = {
     // from: process.env.EMAIL_USER,
     from: "info@trtpep.com",
-    to: [doctorEmail, patientEmail],
+    to: ["smshoaib2001@gmail.com", patientEmail],
     subject: "Google Meet Link for Your Appointment",
     text: `Hello,\n\nHere is your Google Meet link for the upcoming appointment: ${meetLink}\n\nThank you!`,
   };

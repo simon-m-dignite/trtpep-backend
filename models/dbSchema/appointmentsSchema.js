@@ -35,7 +35,7 @@ const AppointmentSchema = new mongoose.Schema({
       required: true,
     },
   ],
-  selectedDate: { type: Date, required: true },
+  selectedDate: { type: String, required: true },
   selectedTime: {
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
