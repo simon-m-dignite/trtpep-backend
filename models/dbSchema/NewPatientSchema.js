@@ -74,7 +74,7 @@ const therapySchema = new mongoose.Schema({
 });
 
 const labWorkSchema = new mongoose.Schema({
-  therapyName: { type: String, required: true },
+  name: { type: String, required: true },
   totalPrice: { type: Number, required: true },
 });
 

@@ -8,11 +8,13 @@ var corsOptions = {
   optionsSuccessStatus: 200,
 };
 const bodyParser = require("body-parser");
+const path = require("path");
 
 const { DBConnection } = require("./models/dbConnection");
 const PORT = process.env.PORT;
 
 const app = express();
+app.use("/invoices", express.static(path.join(__dirname, "invoices")));
 
 // Middlewares here
 app.use(express.json());
@@ -37,6 +39,7 @@ require("./models/dbSchema/policySchema");
 require("./models/dbSchema/blogSchema");
 require("./models/dbSchema/bookedAppointmentSchema");
 require("./models/dbSchema/customers");
+require("./models/dbSchema/doctorOtpSchema");
 
 // routes
 app.use("/api", require("./routes/userRoutes"));

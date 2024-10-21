@@ -200,7 +200,6 @@ const sendInvoiceEmail = async (email, invoicePath) => {
 
   await transporter.sendMail(mailOptions);
 
-  // Optionally: Delete the invoice file after sending the email
   fs.unlink(invoicePath, (err) => {
     if (err) console.log(err);
     console.log("Invoice file deleted.");
@@ -225,6 +224,7 @@ module.exports.PlaceLabOrder = async (req, res) => {
   } = req.body;
 
   try {
+    // Validate captcha
     const captchaResponse = await axios.post(
       `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.CAPTCHA_SECRET_KEY}&response=${captcha}`
     );
@@ -236,6 +236,7 @@ module.exports.PlaceLabOrder = async (req, res) => {
       });
     }
 
+    // Create Stripe session
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
@@ -252,10 +253,9 @@ module.exports.PlaceLabOrder = async (req, res) => {
       mode: "payment",
       success_url: "http://localhost:5174/lab-order/success",
       cancel_url: "http://localhost:5174/lab-order/failed",
-      // success_url: "https://trtpep.com/lab-order/success",
-      // cancel_url: "https://trtpep.com/lab-order/failed",
     });
 
+    // Save lab order in the database
     const labOrder = await LabOrdersModel.create({
       firstName,
       lastName,
@@ -271,6 +271,7 @@ module.exports.PlaceLabOrder = async (req, res) => {
       isNewPatient,
     });
 
+    // Update or create customer record
     const isOldCustomer = await CustomersModel.findOne({ email });
 
     if (isOldCustomer) {
@@ -307,25 +308,40 @@ module.exports.PlaceLabOrder = async (req, res) => {
       await customer.save();
     }
 
+    // Generate PDF Invoice
     const doc = new PDFDocument();
     const invoicePath = path.join(
       __dirname,
-      `/invoices/invoice-${labOrder._id}.pdf`
-    );
+      "../invoices/invoice-" + labOrder._id + ".pdf"
+    ); // Updated path to store in main directory
     const pdfStream = fs.createWriteStream(invoicePath);
     doc.pipe(pdfStream);
 
     // Add content to the PDF
     doc.fontSize(18).text("Invoice", { align: "center" });
     doc.moveDown();
-    doc.fontSize(14).text(`Order ID: ${labOrder._id}`);
+    doc
+      .fontSize(14)
+      .text(`Order ID: ${labOrder._id}`, { align: "left", margin: "10px 0px" });
     doc.text(`Name: ${firstName} ${lastName}`);
-    doc.text(`Email: ${email}`);
+    doc.text(`Email: ${email}`, { margin: "10px 0px" });
     doc.text(`Phone: ${phone}`);
     doc.text(
-      `Billing Address: ${billingAddress}, ${billingAddressLine}, ${city}, ${shippingState}, ${zipCode}`
+      `Billing Address: ${billingAddress}, ${billingAddressLine}, ${city}, ${shippingState}, ${zipCode}`,
+      { margin: "10px 0px" }
     );
     doc.text(`Amount: $${amount}`);
+    const currentDate = new Date();
+    const formattedDate = `${String(currentDate.getDate()).padStart(
+      2,
+      "0"
+    )}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(
+      currentDate.getFullYear()
+    ).slice(-2)}`;
+    doc.text(`Order Date: ${formattedDate}`, {
+      align: "left",
+      margin: "10px 0px",
+    });
     doc.end();
 
     // Send email with invoice
@@ -342,9 +358,12 @@ module.exports.PlaceLabOrder = async (req, res) => {
         ],
       });
 
-      labOrder.invoicePath = invoicePath;
+      // Save the relative URL for the invoice
+      const invoiceURL = `/invoices/invoice-${labOrder._id}.pdf`;
+      labOrder.invoicePath = invoiceURL;
       await labOrder.save();
 
+      // Respond with success and the Stripe URL
       res.status(200).send({
         success: true,
         message: "Payment URL generated and invoice sent.",
@@ -518,7 +537,7 @@ module.exports.FetchLabOrderByEmail = async (req, res) => {
   try {
     const { email } = req.params;
     console.log(email);
-    const labOrder = await LabOrderModel.find({ email });
+    const labOrder = await LabOrdersModel.find({ email });
     if (!labOrder) {
       return res.status(404).json({
         status: 404,

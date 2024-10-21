@@ -126,11 +126,17 @@ module.exports.NewPatient = async (req, res) => {
 
     // Generate the PDF invoice
     const invoiceFileName = `invoice-${newPatient._id}.pdf`;
-    const invoiceFilePath = path.join(__dirname, "invoices", invoiceFileName);
+
+    // Updated path to store in the main directory
+    const invoiceFilePath = path.join(
+      __dirname,
+      "../invoices",
+      invoiceFileName
+    );
     await generateInvoicePDF(invoiceFilePath, newPatient); // Assuming the helper function below
 
     // Update the patient record with the invoice path
-    newPatient.invoicePath = invoiceFilePath;
+    newPatient.invoicePath = `/invoices/${invoiceFileName}`;
     await newPatient.save();
 
     // Send the invoice via email
@@ -178,15 +184,24 @@ async function generateInvoicePDF(filePath, patient) {
   doc
     .fontSize(14)
     .text(
-      `Invoice for Patient: ${patient.patient.patientInfo.firstName} ${patient.patient.patientInfo.lastName}`,
+      `Patient Invoice: ${patient.patient.patientInfo.firstName} ${patient.patient.patientInfo.lastName}`,
       { align: "left" }
     );
 
-  // Order amount
-  doc.text(`Total Amount: $${patient.amount}`, { align: "left" });
+  const currentDate = new Date();
+  const formattedDate = `${String(currentDate.getDate()).padStart(
+    2,
+    "0"
+  )}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(
+    currentDate.getFullYear()
+  ).slice(-2)}`;
+  doc.text(`Order Date: ${formattedDate}`, {
+    align: "left",
+    margin: "10px 0px",
+  });
 
   // Add therapies with their details
-  doc.fontSize(14).text("Therapies Selected:", { align: "left" });
+  doc.fontSize(14).text("Therapies Ordered:", { align: "left" });
 
   patient.selectedTherapies.forEach((therapy) => {
     doc
@@ -221,8 +236,11 @@ async function generateInvoicePDF(filePath, patient) {
   } = patient.patient.shippingInfo;
   doc.text(
     `Shipping Address: ${shippingStreetAddress}, ${shippingCity}, ${shippingState}, ${shippingZipCode}`,
-    { align: "left" }
+    { align: "left", margin: "10px 0px" }
   );
+
+  // Order amount
+  doc.text(`Total Amount: $${patient.amount}`, { align: "left" });
 
   // Finalize the PDF
   doc.end();
@@ -480,7 +498,7 @@ module.exports.FetchPatientInfoByEmail = async (req, res) => {
     console.log(email);
 
     const patient = await NewPatientModel.find({
-      "patientInfo.email": email,
+      "patient.patientInfo.email": email,
     });
 
     if (!patient) {

@@ -94,10 +94,8 @@ module.exports.BookAppointment = async (req, res) => {
     meetUrl,
     amount,
   } = req.body;
-  console.log("I got a hit");
 
   try {
-    // Check if the selected time slot is already booked
     const existingAppointment = await BookedAppointments.findOne({
       doctorId,
       startTime: selectedTime.startTime,
@@ -114,16 +112,12 @@ module.exports.BookAppointment = async (req, res) => {
       });
     }
 
-    // Proceed to create the new appointment since the slot is available
-
     const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: "usd", // You can change this to another currency
+      amount: amount * 100,
+      currency: "usd",
     });
+    console.log("paymentIntent >>", paymentIntent);
 
-    // res.status(200).send({
-    //   clientSecret: paymentIntent.client_secret,
-    // });
     const newAppointment = new AppointmentModel({
       doctorId,
       selectedServices,
@@ -166,7 +160,7 @@ module.exports.AppointmentPayment = async (req, res) => {
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: "usd", // You can change this to another currency
+      currency: "usd",
     });
 
     res.status(200).send({
@@ -343,5 +337,46 @@ module.exports.checkAppointmentAvailability = async (req, res) => {
   } catch (error) {
     console.log("Error in checkAppointmentAvailability >> ", error);
     res.status(500).send({ message: "Server error", error });
+  }
+};
+
+module.exports.FetchDoctorAppointment = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+
+    // Step 1: Fetch doctor appointments
+    const doctorAppointments = await AppointmentModel.find({ doctorId });
+
+    // Step 2: Check if there are any appointments
+    if (doctorAppointments.length === 0) {
+      return res.status(404).json({ message: "No Appointments Found" });
+    }
+
+    // Step 3: Extract selected service IDs from the appointments
+    const selectedServiceIds = doctorAppointments.flatMap(
+      (appointment) => appointment.selectedServices
+    );
+
+    // Step 4: Fetch services based on selected service IDs
+    const services = await ServiceModal.find({
+      _id: { $in: selectedServiceIds },
+    });
+
+    // Step 5: Combine appointments with their corresponding services
+    const appointmentsWithServices = doctorAppointments.map((appointment) => {
+      return {
+        ...appointment._doc, // Include all original appointment fields
+        services: services.filter((service) =>
+          appointment.selectedServices.includes(service._id.toString())
+        ), // Attach matching services
+      };
+    });
+
+    // Step 6: Return the response with appointments and their services
+    return res
+      .status(200)
+      .json({ message: "success", data: appointmentsWithServices });
+  } catch (error) {
+    return res.status(500).json({ message: "Something went wrong", error });
   }
 };

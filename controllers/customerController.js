@@ -23,7 +23,6 @@ module.exports.GetCustomerOrders = async (req, res) => {
     const { _id } = req.params;
 
     const customer = await CustomerModel.findById({ _id });
-    // console.log(customer);
 
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
@@ -38,7 +37,7 @@ module.exports.GetCustomerOrders = async (req, res) => {
 
       if (order.orderType === "LabOrder") {
         orderDetails = await LabOrderModel.findById(order.orderId);
-      } else if (order.orderType === "ProductOrder") {
+      } else if (order.orderType === "NewPatient") {
         orderDetails = await NewPatientModel.findById(order.orderId);
       }
 
