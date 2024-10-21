@@ -1,4 +1,5 @@
 const express = require("express");
+const app = express();
 const {
   FetchLabOrders,
   FetchLabOrder,
@@ -6,6 +7,7 @@ const {
   FilterLabOrders,
   PlaceLabOrder,
   UpdateLabOrderPaymentStatus,
+  FetchLabOrderByEmail,
 } = require("../controllers/labOrderController");
 const router = express.Router();
 const cors = require("cors");
@@ -32,4 +34,5 @@ router.put(
   UpdateLabOrderPaymentStatus
 );
 
+router.get("/lab/get-customer-orders/:email", FetchLabOrderByEmail);
 module.exports = router;

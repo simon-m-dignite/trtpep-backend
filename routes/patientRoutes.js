@@ -10,6 +10,7 @@ const {
   FilterPatients,
   NewPatient,
   UpdateNewPatientStatus,
+  FetchPatientInfoByEmail,
 } = require("../controllers/patientController");
 const router = express.Router();
 const cors = require("cors");
@@ -36,5 +37,7 @@ router.get("/filter-patients", FilterPatients);
 router.post("/new-patient", cors(corsOptions), NewPatient);
 
 router.put("/patient/update-status", UpdateNewPatientStatus);
+
+router.get("/patient/patient-info/:email", FetchPatientInfoByEmail);
 
 module.exports = router;

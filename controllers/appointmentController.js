@@ -3,6 +3,9 @@ const AppointmentModel = mongoose.model("Appointments");
 const ServiceModal = mongoose.model("DoctorServices");
 const nodemailer = require("nodemailer");
 const { google } = require("googleapis");
+const BookedAppointments = mongoose.model("BookedAppointments");
+const Stripe = require("stripe");
+const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -78,6 +81,8 @@ const transporter = nodemailer.createTransport({
 //   }
 // };
 
+// my workign controller
+
 module.exports.BookAppointment = async (req, res) => {
   const {
     selectedServices,
@@ -86,46 +91,90 @@ module.exports.BookAppointment = async (req, res) => {
     patient,
     accountNumber,
     doctorId,
+    meetUrl,
+    amount,
   } = req.body;
-  console.log(req.body);
+  console.log("I got a hit");
 
-  // Check if timeslot is available by verifying existing appointments
-  const existingAppointments = await AppointmentModel.find({
-    doctorId,
-    selectedDate,
-  });
+  try {
+    // Check if the selected time slot is already booked
+    const existingAppointment = await BookedAppointments.findOne({
+      doctorId,
+      startTime: selectedTime.startTime,
+      endTime: selectedTime.endTime,
+      date: selectedDate,
+      status: "Booked",
+    });
 
-  let isTimeslotAvailable = true;
-  existingAppointments.forEach((appointment) => {
-    if (
-      appointment.timeslot.startTime === timeslot.startTime &&
-      appointment.timeslot.endTime === timeslot.endTime
-    ) {
-      isTimeslotAvailable = false;
+    if (existingAppointment) {
+      return res.status(400).json({
+        code: 400,
+        message:
+          "The selected time slot is already booked. Please choose a different timeslot or date.",
+      });
     }
-  });
 
-  if (!isTimeslotAvailable) {
-    return res
-      .status(400)
-      .json({ message: "Selected timeslot is not available" });
+    // Proceed to create the new appointment since the slot is available
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd", // You can change this to another currency
+    });
+
+    // res.status(200).send({
+    //   clientSecret: paymentIntent.client_secret,
+    // });
+    const newAppointment = new AppointmentModel({
+      doctorId,
+      selectedServices,
+      selectedDate,
+      selectedTime,
+      patient,
+      accountNumber,
+      meetUrl,
+    });
+
+    const markAnAppointment = new BookedAppointments({
+      doctorId,
+      services: selectedServices,
+      startTime: selectedTime.startTime,
+      endTime: selectedTime.endTime,
+      date: selectedDate,
+      status: "Booked",
+    });
+
+    await newAppointment.save();
+    await markAnAppointment.save();
+
+    return res.json({
+      message: "Appointment booked successfully",
+      data: paymentIntent.client_secret,
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "An error occurred while booking the appointment.",
+      error: error.message,
+    });
   }
+};
 
-  // Create new appointment
-  const newAppointment = new AppointmentModel({
-    doctorId,
-    selectedServices,
-    selectedDate,
-    selectedTime,
-    patient,
-    accountNumber,
-  });
+module.exports.AppointmentPayment = async (req, res) => {
+  try {
+    const { amount } = req.body;
 
-  await newAppointment.save();
-  res.json({
-    message: "Appointment booked successfully",
-    appointment: newAppointment,
-  });
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "usd", // You can change this to another currency
+    });
+
+    res.status(200).send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
 };
 
 module.exports.SendEmail = async (req, res) => {
@@ -135,7 +184,7 @@ module.exports.SendEmail = async (req, res) => {
   const mailOptions = {
     // from: process.env.EMAIL_USER,
     from: "info@trtpep.com",
-    to: [doctorEmail, patientEmail],
+    to: ["smshoaib2001@gmail.com", patientEmail],
     subject: "Google Meet Link for Your Appointment",
     text: `Hello,\n\nHere is your Google Meet link for the upcoming appointment: ${meetLink}\n\nThank you!`,
   };
@@ -149,10 +198,77 @@ module.exports.SendEmail = async (req, res) => {
   }
 };
 
+// module.exports.checkAppointmentAvailability = async (req, res) => {
+//   try {
+//     const { selectedServices, doctorId, timeSlot, selectedDate } = req.body;
+//     console.log("availability checked", timeSlot);
+
+//     if (!selectedServices) {
+//       return res.status(403).send({ message: "Please select a service" });
+//     }
+
+//     if (!selectedDate) {
+//       console.log("selectedDate >> ", selectedDate);
+//       return res.status(403).send({ message: "Please select a date" });
+//     }
+
+//     for (const serviceId of selectedServices) {
+//       const service = await ServiceModal.findOne({
+//         _id: serviceId,
+//         doctorId: doctorId,
+//       });
+
+//       if (service) {
+//         const slot = service.timeSlots.find(
+//           (slot) =>
+//             // slot.startTime === timeSlot.startTime &&
+//             // slot.endTime === timeSlot.endTime
+//             slot._id == timeSlot._id
+//         );
+
+//         console.log("slot >> ", slot);
+//         const dateObj = new Date(selectedDate);
+//         const formattedDate = dateObj.toLocaleDateString("en-US", {
+//           weekday: "short", // 'Fri'
+//           year: "numeric", // '2024'
+//           month: "short", // 'Oct'
+//           day: "numeric", // '18'
+//         });
+
+//         if (slot) {
+//           if (slot.isBooked) {
+//             return res.status(400).json({
+//               status: 400,
+//               message: `The time slot ${timeSlot.startTime} - ${timeSlot.endTime} is alread booked on ${formattedDate}.`,
+//             });
+//           }
+//         } else {
+//           return res.status(404).json({
+//             status: 404,
+//             message: `Time slot ${timeSlot.start} - ${timeSlot.end} not found.`,
+//           });
+//         }
+//       } else {
+//         return res.status(404).json({
+//           status: 404,
+//           message: `Service not found for service ID: ${serviceId} and doctor ID: ${doctorId}.`,
+//         });
+//       }
+//     }
+
+//     res.status(200).json({
+//       status: 200,
+//       message: "Time slot is available for booking.",
+//     });
+//   } catch (error) {
+//     console.log("Error in checkAppointmentAvailability >> ", error);
+//     res.status(500).send({ message: "Server error", error });
+//   }
+// };
+
 module.exports.checkAppointmentAvailability = async (req, res) => {
   try {
-    const { selectedServices, doctorId, timeSlot, selectedDate } = req.body;
-    console.log("availability checked", req.body);
+    const { selectedServices, doctorId, selectedDate } = req.body;
 
     if (!selectedServices) {
       return res.status(403).send({ message: "Please select a service" });
@@ -163,6 +279,18 @@ module.exports.checkAppointmentAvailability = async (req, res) => {
       return res.status(403).send({ message: "Please select a date" });
     }
 
+    const dateObj = new Date(selectedDate);
+    const formattedDate = dateObj.toLocaleDateString("en-US", {
+      weekday: "short", // 'Fri'
+      year: "numeric", // '2024'
+      month: "short", // 'Oct'
+      day: "numeric", // '18'
+    });
+
+    // Array to store available slots
+    let availableSlots = [];
+
+    // Loop through selected services to find available slots
     for (const serviceId of selectedServices) {
       const service = await ServiceModal.findOne({
         _id: serviceId,
@@ -170,21 +298,24 @@ module.exports.checkAppointmentAvailability = async (req, res) => {
       });
 
       if (service) {
-        const slot = service.timeSlots.find(
-          (slot) => slot.start === timeSlot.start && slot.end === timeSlot.end
-        );
+        // Filter the available slots that are not booked for the selected date
+        const availableServiceSlots = service.timeSlots.filter((slot) => {
+          return !slot.isBooked;
+        });
 
-        if (slot) {
-          if (slot.isBooked) {
-            return res.status(400).json({
-              status: 400,
-              message: `The time slot ${timeSlot.start} - ${timeSlot.end} on ${selectedDate} is already booked.`,
-            });
-          }
+        if (availableServiceSlots.length > 0) {
+          availableSlots.push({
+            serviceId: serviceId,
+            doctorId: doctorId,
+            date: formattedDate,
+            availableSlots: availableServiceSlots,
+          });
         } else {
-          return res.status(404).json({
-            status: 404,
-            message: `Time slot ${timeSlot.start} - ${timeSlot.end} not found.`,
+          availableSlots.push({
+            serviceId: serviceId,
+            doctorId: doctorId,
+            date: formattedDate,
+            availableSlots: [], // No slots available
           });
         }
       } else {
@@ -195,9 +326,19 @@ module.exports.checkAppointmentAvailability = async (req, res) => {
       }
     }
 
+    // If there are no available slots, return appropriate response
+    if (availableSlots.length === 0) {
+      return res.status(404).json({
+        status: 404,
+        message: `No available time slots for the selected service(s) on ${formattedDate}.`,
+      });
+    }
+
+    // Return the available slots for the services
     res.status(200).json({
       status: 200,
-      message: "Time slot is available for booking.",
+      message: "Available time slots fetched successfully.",
+      data: availableSlots,
     });
   } catch (error) {
     console.log("Error in checkAppointmentAvailability >> ", error);

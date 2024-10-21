@@ -17,6 +17,7 @@ const LabOrderSchema = new mongoose.Schema(
     isNewPatient: { type: String, required: true },
     orderStatus: { type: String, default: "Pending" },
     payment_status: { type: Boolean, default: false },
+    invoicePath: { type: String, default: "" },
   },
   {
     collection: "LabOrders",

@@ -12,7 +12,7 @@ module.exports.CreateService = async (req, res) => {
       duration,
       timeSlots,
     } = req.body;
-    console.log("service data >> ", req.body);
+    // console.log("service data >> ", req.body);
 
     const isOldService = await ServiceModal.findOne({ serviceSubtitle });
 

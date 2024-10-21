@@ -30,6 +30,13 @@ require("./models/dbSchema/enrollSchema");
 require("./models/dbSchema/doctorsSchema");
 require("./models/dbSchema/serviceSchema");
 require("./models/dbSchema/appointmentsSchema");
+require("./models/dbSchema/productsSchema");
+require("./models/dbSchema/pricesSchema");
+require("./models/dbSchema/faqsSchema");
+require("./models/dbSchema/policySchema");
+require("./models/dbSchema/blogSchema");
+require("./models/dbSchema/bookedAppointmentSchema");
+require("./models/dbSchema/customers");
 
 // routes
 app.use("/api", require("./routes/userRoutes"));
@@ -38,6 +45,12 @@ app.use("/api", require("./routes/labOrderRoutes"));
 app.use("/api", require("./routes/doctorRoutes"));
 app.use("/api", require("./routes/serviceRoutes"));
 app.use("/api", require("./routes/appointmentRoutes"));
+app.use("/api", require("./routes/productsRoutes"));
+app.use("/api", require("./routes/pricesRoutes"));
+app.use("/api", require("./routes/faqsRoutes"));
+app.use("/api", require("./routes/privacyPolicyRoutes"));
+app.use("/api", require("./routes/blogRoutes"));
+app.use("/api", require("./routes/customerRoutes"));
 
 // Routes here
 app.get("/hello", (req, res) => {

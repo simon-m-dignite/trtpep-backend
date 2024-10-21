@@ -35,13 +35,14 @@ const AppointmentSchema = new mongoose.Schema({
       required: true,
     },
   ],
-  selectedDate: { type: Date, required: true },
+  selectedDate: { type: String, required: true },
   selectedTime: {
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
   },
   status: { type: String, default: "booked" },
   accountNumber: { type: String, required: false },
+  meetUrl: { type: String, required: false, default: "" },
 });
 
 module.exports = mongoose.model("Appointments", AppointmentSchema);

@@ -5,8 +5,254 @@ const EnrollmentModel = mongoose.model("EnrolledPatients");
 const NewPatientModel = mongoose.model("Patients");
 require("dotenv").config();
 const Stripe = require("stripe");
+const fs = require("fs");
+const path = require("path");
+const nodemailer = require("nodemailer");
+const PDFDocument = require("pdfkit");
+const CustomersModel = mongoose.model("Customers");
 
 const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
+
+module.exports.NewPatient = async (req, res) => {
+  const { formData, amount, selectedTherapies, selectedLabWork, howDidHear } =
+    req.body;
+
+  const { patientInfo, shippingInfo, billingInfo, isBillingSameAsShipping } =
+    formData;
+  const { firstName, lastName, email, phoneNumber, dob } = patientInfo;
+
+  try {
+    // Check if customer exists in Stripe
+    let stripeCustomer;
+
+    const existingStripeCustomers = await stripe.customers.list({
+      email: email,
+      limit: 1,
+    });
+
+    if (existingStripeCustomers.data.length > 0) {
+      stripeCustomer = existingStripeCustomers.data[0];
+    } else {
+      // Create new Stripe customer
+      stripeCustomer = await stripe.customers.create({
+        name: `${firstName} ${lastName}`,
+        email: email,
+        phone: phoneNumber,
+        address: {
+          line1: billingInfo.billingStreetAddress,
+          line2: billingInfo.billingAddressLine,
+          city: billingInfo.billingCity,
+          state: billingInfo.billingState,
+          postal_code: billingInfo.billingZipCode,
+          country: "US",
+        },
+      });
+    }
+
+    // Create a product for the order on Stripe
+    const product = await stripe.products.create({
+      name: "Patient Form Order",
+      description: `Therapies: ${selectedTherapies.map(
+        (therapy) => therapy.therapyName
+      )}. Lab Work: ${selectedLabWork.map((lab) => lab.name)}.`,
+    });
+
+    // Create Stripe price object for the product (this is required for a checkout session)
+    const price = await stripe.prices.create({
+      product: product.id,
+      unit_amount: Math.round(amount * 100),
+      currency: "usd",
+    });
+
+    // Create a Stripe payment session
+    const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomer.id, // Associate session with the customer
+      line_items: [
+        {
+          price: price.id,
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: "http://localhost:5173/new-patient/success",
+      cancel_url: "http://localhost:5173/new-patient/failed",
+    });
+
+    // Save the new patient to the database
+    const newPatient = await NewPatientModel.create({
+      patient: formData,
+      amount,
+      selectedTherapies,
+      selectedLabWork,
+      howDidHear,
+    });
+
+    const existingPatient = await NewPatientModel.findOne({
+      "patientInfo.email": email,
+    });
+
+    if (existingPatient) {
+      await CustomersModel.findOneAndUpdate(
+        { email: patientInfo.email },
+        {
+          lastOrderDate: Date.now(),
+          $push: {
+            orders: {
+              orderId: newPatient._id,
+              orderType: "NewPatient",
+            },
+          },
+        },
+        {
+          new: true,
+        }
+      );
+    } else {
+      const customer = await CustomersModel.create({
+        name: `${patientInfo.firstName} ${patientInfo.lastName}`,
+        email: patientInfo.email,
+        phone: patientInfo.phoneNumber,
+        address: billingInfo.billingStreetAddress,
+        orderType: "NewPatient",
+        orderAmount: amount,
+        lastOrderDate: Date.now(),
+        orders: {
+          orderId: newPatient._id,
+          orderType: "NewPatient",
+        },
+      });
+      await customer.save();
+    }
+
+    // Generate the PDF invoice
+    const invoiceFileName = `invoice-${newPatient._id}.pdf`;
+    const invoiceFilePath = path.join(__dirname, "invoices", invoiceFileName);
+    await generateInvoicePDF(invoiceFilePath, newPatient); // Assuming the helper function below
+
+    // Update the patient record with the invoice path
+    newPatient.invoicePath = invoiceFilePath;
+    await newPatient.save();
+
+    // Send the invoice via email
+    await sendEmailWithAttachment({
+      to: email,
+      subject: "Your Patient Order Invoice",
+      text: `Dear ${firstName},\n\nPlease find attached your invoice for the patient order.\n\nThank you!`,
+      attachments: [
+        {
+          filename: invoiceFileName,
+          path: invoiceFilePath,
+        },
+      ],
+    });
+
+    // Respond with success and payment URL
+    res.status(200).json({
+      success: true,
+      message:
+        "Payment URL generated successfully, Stripe customer and product created, and invoice sent to the patient.",
+      data: newPatient,
+      url: session.url,
+      invoicePath: newPatient.invoicePath,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+    console.error("new-patient error >> ", error);
+  }
+};
+
+// Helper function to generate PDF invoice
+async function generateInvoicePDF(filePath, patient) {
+  const doc = new PDFDocument();
+  const stream = fs.createWriteStream(filePath);
+
+  doc.pipe(stream);
+
+  // Title of the invoice
+  doc.fontSize(20).text("Invoice", { align: "center" });
+
+  // Patient information
+  doc
+    .fontSize(14)
+    .text(
+      `Invoice for Patient: ${patient.patient.patientInfo.firstName} ${patient.patient.patientInfo.lastName}`,
+      { align: "left" }
+    );
+
+  // Order amount
+  doc.text(`Total Amount: $${patient.amount}`, { align: "left" });
+
+  // Add therapies with their details
+  doc.fontSize(14).text("Therapies Selected:", { align: "left" });
+
+  patient.selectedTherapies.forEach((therapy) => {
+    doc
+      .fontSize(12)
+      .text(
+        `${therapy?.therapyName} - ${therapy?.selectedOptionName} - $${therapy?.totalPrice}`,
+        { align: "left" }
+      );
+  });
+
+  // doc.fontSize(14).text("Therapies Selected:", { align: "left" });
+
+  patient.selectedLabWork.forEach((therapy) => {
+    doc
+      .fontSize(12)
+      .text(
+        `${therapy?.name} - ${
+          therapy?.selectedOptionName !== undefined
+            ? therapy?.selectedOptionName
+            : null
+        } - $${therapy?.totalPrice}`,
+        { align: "left" }
+      );
+  });
+
+  // Shipping information
+  const {
+    shippingStreetAddress,
+    shippingCity,
+    shippingState,
+    shippingZipCode,
+  } = patient.patient.shippingInfo;
+  doc.text(
+    `Shipping Address: ${shippingStreetAddress}, ${shippingCity}, ${shippingState}, ${shippingZipCode}`,
+    { align: "left" }
+  );
+
+  // Finalize the PDF
+  doc.end();
+
+  return new Promise((resolve, reject) => {
+    stream.on("finish", resolve);
+    stream.on("error", reject);
+  });
+}
+
+async function sendEmailWithAttachment({ to, subject, text, attachments }) {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    auth: {
+      user: "professorcoding123@gmail.com",
+      pass: "bhmkhbxysiztceii",
+    },
+  });
+
+  const mailOptions = {
+    from: "info@trtpep.com",
+    to,
+    subject,
+    text,
+    attachments,
+  };
+
+  return transporter.sendMail(mailOptions);
+}
 
 module.exports.FetchPatients = async (req, res) => {
   try {
@@ -210,122 +456,6 @@ module.exports.FilterPatients = async (req, res) => {
   }
 };
 
-module.exports.NewPatient = async (req, res) => {
-  const { formData, amount } = req.body;
-
-  const {
-    therapyDetails,
-    labWorkDetails,
-    patientInfo,
-    shippingInfo,
-    billingInfo,
-    isBillingSameAsShipping,
-  } = formData;
-
-  const { testosterone, peptide, hcg, weightLoss } = therapyDetails;
-
-  const { bloodWorkForTestosterone, howDidHear } = labWorkDetails;
-
-  const { firstName, lastName, email, phoneNumber, dob } = patientInfo;
-
-  const {
-    shippingStreetAddress,
-    shippingAddressLine,
-    shippingCity,
-    shippingState,
-    shippingZipCode,
-  } = shippingInfo;
-
-  const {
-    billingStreetAddress,
-    billingAddressLine,
-    billingCity,
-    billingState,
-    billingZipCode,
-  } = billingInfo;
-
-  try {
-    // Create a payment intent with Stripe
-    // const paymentIntent = await stripe.paymentIntents.create({
-    //   amount: req.body.amount * 100,
-    //   currency: "usd",
-    //   payment_method_data: {
-    //     type: "card",
-    //     card: { token: req.body.id },
-    //   },
-    //   confirm: true,
-    //   return_url: "https://www.dignitestudios.com",
-    // });
-
-    const session = await stripe.checkout.sessions.create({
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "Patient Form",
-            },
-            unit_amount: Math.round(amount * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: "https://trtpep.com/new-patient/success",
-      cancel_url: "https://trtpep.com/new-patient/failed",
-    });
-
-    const newPatient = new NewPatientModel.create({
-      therapyDetails: {
-        testosterone,
-        peptide,
-        hcg,
-        weightLoss,
-      },
-      labWorkDetails: {
-        bloodWorkForTestosterone,
-        howDidHear,
-      },
-      patientInfo: {
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        dob,
-      },
-      shippingInfo: {
-        shippingStreetAddress,
-        shippingAddressLine,
-        shippingCity,
-        shippingState,
-        shippingZipCode,
-      },
-      billingInfo: {
-        billingStreetAddress,
-        billingAddressLine,
-        billingCity,
-        billingState,
-        billingZipCode,
-      },
-      isBillingSameAsShipping,
-      amount,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Payment Url generated successfully.",
-      data: newPatient,
-      url: session.url,
-    });
-  } catch (error) {
-    res.status(400).send({
-      success: false,
-      message: error.message,
-    });
-    console.log("new-patient error >> ", error);
-  }
-};
-
 module.exports.UpdateNewPatientStatus = async (req, res) => {
   try {
     const { id } = req.body;
@@ -341,5 +471,38 @@ module.exports.UpdateNewPatientStatus = async (req, res) => {
   } catch (error) {
     console.error("Error UpdateNewPatientStatus patients:", error);
     res.status(500).json({ status: 500, message: "Server Error" });
+  }
+};
+
+module.exports.FetchPatientInfoByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log(email);
+
+    const patient = await NewPatientModel.find({
+      "patientInfo.email": email,
+    });
+
+    if (!patient) {
+      return res.status(404).json({
+        status: 404,
+        message: "Patient Not Found",
+      });
+    }
+
+    console.log(patient);
+
+    res.status(200).json({
+      statusCode: 200,
+      message: "Success",
+      patient,
+    });
+  } catch (error) {
+    console.error("Error fetching patient info >> ", error);
+    res.status(500).json({
+      status: 500,
+      message: "Server Error",
+      error,
+    });
   }
 };
