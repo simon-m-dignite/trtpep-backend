@@ -40,6 +40,7 @@ require("./models/dbSchema/blogSchema");
 require("./models/dbSchema/bookedAppointmentSchema");
 require("./models/dbSchema/customers");
 require("./models/dbSchema/doctorOtpSchema");
+require("./models/dbSchema/SchedulerUrlSchema");
 
 // routes
 app.use("/api", require("./routes/userRoutes"));
@@ -54,6 +55,7 @@ app.use("/api", require("./routes/faqsRoutes"));
 app.use("/api", require("./routes/privacyPolicyRoutes"));
 app.use("/api", require("./routes/blogRoutes"));
 app.use("/api", require("./routes/customerRoutes"));
+app.use("/api", require("./routes/SchedulerUrlRoutes"));
 
 // Routes here
 app.get("/hello", (req, res) => {

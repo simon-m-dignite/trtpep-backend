@@ -325,10 +325,7 @@ module.exports.FetchPatient = async (req, res) => {
 module.exports.EnrollPatient = async (req, res) => {
   try {
     const { firstName, lastName, email, phoneNumber } = req.body;
-    console.log(firstName);
-    console.log(lastName);
-    console.log(email);
-    console.log(phoneNumber);
+
     const user = await EnrollmentModel.findOne({ email });
     if (user) {
       return res.status(200).json({
@@ -376,8 +373,8 @@ module.exports.FetchEnrolledPatients = async (req, res) => {
 
 module.exports.GetEnrolledPatient = async (req, res) => {
   try {
-    const { id } = req.body;
-    const patient_data = await EnrollmentModel.findById({ _id: id });
+    const { email } = req.params;
+    const patient_data = await EnrollmentModel.find({ email });
     if (!patient_data) {
       return res.status(404).json({ status: 404, message: "No Patient Found" });
     }

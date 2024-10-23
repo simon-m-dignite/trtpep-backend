@@ -3,11 +3,14 @@ const {
   CreateDeliveryCharges,
   UpdateDeliveryCharges,
   GetPrices,
+  GetChargesById,
 } = require("../controllers/pricesController");
 const router = express.Router();
 
-router.post("/prices/set-delivery-charges", CreateDeliveryCharges);
-router.put("/prices/update-delivery-charges", UpdateDeliveryCharges);
-router.get("/prices/get-prices", GetPrices);
+router.post("/prices/set-charges", CreateDeliveryCharges);
+router.put("/charges/update-charges/:_id", UpdateDeliveryCharges);
+router.get("/charges/get-charges", GetPrices);
+router.get("/charges/get-charges/:_id", GetChargesById);
+// router.get("/prices/price/:_id");
 
 module.exports = router;

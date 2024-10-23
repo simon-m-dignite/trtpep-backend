@@ -1,12 +1,13 @@
 const mongoose = require("mongoose");
 const PricesModel = mongoose.model("Prices");
+const SchedulerUrlModel = mongoose.model("SchedulerUrl");
 
 module.exports.CreateDeliveryCharges = async (req, res) => {
   try {
-    const { deliveryCharges, labOrdersCharges } = req.body;
+    const { name, charges } = req.body;
     const response = new PricesModel({
-      deliveryCharges,
-      labOrdersCharges,
+      name,
+      charges,
     });
 
     const savedEntry = await response.save();
@@ -23,14 +24,15 @@ module.exports.CreateDeliveryCharges = async (req, res) => {
 
 module.exports.UpdateDeliveryCharges = async (req, res) => {
   try {
-    const { deliveryCharges, id, labOrdersCharges } = req.body;
+    const { charges } = req.body;
+    const { _id } = req.params;
+
     const updatedDeliveryCharges = await PricesModel.findByIdAndUpdate(
       {
-        _id: id,
+        _id,
       },
       {
-        deliveryCharges: deliveryCharges,
-        labOrdersCharges,
+        charges,
       },
       {
         new: true,
@@ -43,7 +45,7 @@ module.exports.UpdateDeliveryCharges = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Prices updated successfully.",
+      message: "Price updated successfully.",
       data: updatedDeliveryCharges,
     });
   } catch (error) {
@@ -55,9 +57,25 @@ module.exports.UpdateDeliveryCharges = async (req, res) => {
 module.exports.GetPrices = async (req, res) => {
   try {
     const prices = await PricesModel.find();
-    res.status(200).json({ message: "Success", data: prices });
+    const schedulerUrl = await SchedulerUrlModel.find();
+    res.status(200).json({ message: "Success", data: prices, schedulerUrl });
   } catch (error) {
     console.log("GetPrices error >> ", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+module.exports.GetChargesById = async (req, res) => {
+  try {
+    const { _id } = req.params;
+    const findCharges = await PricesModel.findById({ _id });
+    if (!findCharges) {
+      return res.status(404).json({ message: "Not found" });
+    }
+
+    res.status(200).json({ message: "success", data: findCharges });
+  } catch (error) {
+    console.log("error >>", error);
     res.status(500).json({ message: "Server error", error });
   }
 };

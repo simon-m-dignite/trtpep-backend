@@ -26,7 +26,7 @@ router.get("/get-patients", FetchPatients);
 router.get("/get-patient/:id", FetchPatient);
 router.post("/enroll-patient", EnrollPatient);
 router.get("/get-enrolled-patients", FetchEnrolledPatients);
-router.post("/get-enrolled-patient", GetEnrolledPatient);
+router.get("/get-enrolled-patient/:email", GetEnrolledPatient);
 
 router.post("/search-patient", SearchPatient);
 

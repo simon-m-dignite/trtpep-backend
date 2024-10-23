@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 
 const PricesSchema = new mongoose.Schema(
   {
-    deliveryCharges: { type: Number, required: true, default: 0 },
-    labOrdersCharges: { type: Number, required: true, default: 0 },
+    name: { type: String, required: true, default: "" },
+    charges: { type: Number, required: true, default: 0 },
   },
   {
     collection: "Prices",

@@ -55,3 +55,36 @@ module.exports.GetCustomerOrders = async (req, res) => {
     });
   }
 };
+
+module.exports.FetchCustomerInfoByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log(email);
+
+    const patient = await CustomerModel.find({
+      email,
+    });
+
+    if (!patient) {
+      return res.status(404).json({
+        status: 404,
+        message: "Customer Not Found",
+      });
+    }
+
+    // console.log(patient);
+
+    res.status(200).json({
+      statusCode: 200,
+      message: "Success",
+      patient,
+    });
+  } catch (error) {
+    console.error("Error fetching customer info >> ", error);
+    res.status(500).json({
+      status: 500,
+      message: "Server Error",
+      error,
+    });
+  }
+};
