@@ -6,6 +6,7 @@ const { google } = require("googleapis");
 const BookedAppointments = mongoose.model("BookedAppointments");
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_INTENT_TOKEN);
+const DoctorTimeSlots = mongoose.model("DoctorTimeSlots");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -25,63 +26,6 @@ const transporter = nodemailer.createTransport({
 //   CLIENT_SECRET,
 //   REDIRECT_URI
 // );
-
-// module.exports.BookAppointment = async (req, res) => {
-//   try {
-//     const {
-//       selectedServices,
-//       selectedDate,
-//       selectedTime,
-//       // patientFirstName,
-//       // patientLastName,
-//       // patientEmail,
-//       // patientPhoneNumber,
-//       patient,
-//       accountNumber,
-//     } = req.body;
-
-//     console.log("appointment api >> ", req.body);
-
-//     for (const serviceId of selectedServices) {
-//       const service = await ServiceModal.findById(serviceId);
-
-//       if (service) {
-//         service.timeSlots.forEach((slot) => {
-//           if (
-//             slot.start === selectedTime.start &&
-//             slot.end === selectedTime.end
-//           ) {
-//             slot.isBooked = true;
-//           }
-//         });
-
-//         await service.save();
-//       }
-//     }
-
-//     await AppointmentModel.create({
-//       selectedServices,
-//       selectedDate,
-//       selectedTime,
-//       patient,
-//       // patientFirstName,
-//       // patientLastName,
-//       // patientEmail,
-//       // patientPhoneNumber,
-//       accountNumber,
-//     });
-
-//     res.status(200).json({
-//       status: 200,
-//       message: "Meeting link has been sent to your email address.",
-//     });
-//   } catch (error) {
-//     console.log("BookAppointment error >> ", error);
-//     res.status(500).send({ message: "Something went wrong", error });
-//   }
-// };
-
-// my workign controller
 
 module.exports.BookAppointment = async (req, res) => {
   const {
@@ -112,11 +56,15 @@ module.exports.BookAppointment = async (req, res) => {
       });
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100,
-      currency: "usd",
-    });
-    console.log("paymentIntent >>", paymentIntent);
+    let paymentIntent = null;
+
+    // Only create a payment intent if the amount is greater than 0
+    if (amount > 0) {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: amount * 100, // Convert to cents
+        currency: "usd",
+      });
+    }
 
     const newAppointment = new AppointmentModel({
       doctorId,
@@ -142,8 +90,7 @@ module.exports.BookAppointment = async (req, res) => {
 
     return res.json({
       message: "Appointment booked successfully",
-      data: paymentIntent.client_secret,
-      clientSecret: paymentIntent.client_secret,
+      ...(paymentIntent && { clientSecret: paymentIntent.client_secret }),
     });
   } catch (error) {
     console.error(error);
@@ -151,6 +98,26 @@ module.exports.BookAppointment = async (req, res) => {
       message: "An error occurred while booking the appointment.",
       error: error.message,
     });
+  }
+};
+
+module.exports.SendEmail = async (req, res) => {
+  const { doctorEmail, patientEmail, meetLink } = req.body;
+  // console.log("send email >> ", req.body);
+
+  const mailOptions = {
+    from: "info@trtpep.com",
+    to: [doctorEmail, patientEmail],
+    subject: "Google Meet Link for Your Appointment",
+    text: `Hello,\n\nHere is your Google Meet link for the upcoming appointment: ${meetLink}\n\nThank you!`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: "Emails sent successfully!" });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    res.status(500).json({ message: "Error sending email" });
   }
 };
 
@@ -170,95 +137,6 @@ module.exports.AppointmentPayment = async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 };
-
-module.exports.SendEmail = async (req, res) => {
-  const { doctorEmail, patientEmail, meetLink } = req.body;
-  console.log("send email >> ", req.body);
-
-  const mailOptions = {
-    // from: process.env.EMAIL_USER,
-    from: "info@trtpep.com",
-    to: ["smshoaib2001@gmail.com", patientEmail],
-    subject: "Google Meet Link for Your Appointment",
-    text: `Hello,\n\nHere is your Google Meet link for the upcoming appointment: ${meetLink}\n\nThank you!`,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: "Emails sent successfully!" });
-  } catch (error) {
-    console.error("Error sending email:", error);
-    res.status(500).json({ message: "Error sending email" });
-  }
-};
-
-// module.exports.checkAppointmentAvailability = async (req, res) => {
-//   try {
-//     const { selectedServices, doctorId, timeSlot, selectedDate } = req.body;
-//     console.log("availability checked", timeSlot);
-
-//     if (!selectedServices) {
-//       return res.status(403).send({ message: "Please select a service" });
-//     }
-
-//     if (!selectedDate) {
-//       console.log("selectedDate >> ", selectedDate);
-//       return res.status(403).send({ message: "Please select a date" });
-//     }
-
-//     for (const serviceId of selectedServices) {
-//       const service = await ServiceModal.findOne({
-//         _id: serviceId,
-//         doctorId: doctorId,
-//       });
-
-//       if (service) {
-//         const slot = service.timeSlots.find(
-//           (slot) =>
-//             // slot.startTime === timeSlot.startTime &&
-//             // slot.endTime === timeSlot.endTime
-//             slot._id == timeSlot._id
-//         );
-
-//         console.log("slot >> ", slot);
-//         const dateObj = new Date(selectedDate);
-//         const formattedDate = dateObj.toLocaleDateString("en-US", {
-//           weekday: "short", // 'Fri'
-//           year: "numeric", // '2024'
-//           month: "short", // 'Oct'
-//           day: "numeric", // '18'
-//         });
-
-//         if (slot) {
-//           if (slot.isBooked) {
-//             return res.status(400).json({
-//               status: 400,
-//               message: `The time slot ${timeSlot.startTime} - ${timeSlot.endTime} is alread booked on ${formattedDate}.`,
-//             });
-//           }
-//         } else {
-//           return res.status(404).json({
-//             status: 404,
-//             message: `Time slot ${timeSlot.start} - ${timeSlot.end} not found.`,
-//           });
-//         }
-//       } else {
-//         return res.status(404).json({
-//           status: 404,
-//           message: `Service not found for service ID: ${serviceId} and doctor ID: ${doctorId}.`,
-//         });
-//       }
-//     }
-
-//     res.status(200).json({
-//       status: 200,
-//       message: "Time slot is available for booking.",
-//     });
-//   } catch (error) {
-//     console.log("Error in checkAppointmentAvailability >> ", error);
-//     res.status(500).send({ message: "Server error", error });
-//   }
-// };
 
 module.exports.checkAppointmentAvailability = async (req, res) => {
   try {

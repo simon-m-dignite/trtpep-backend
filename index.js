@@ -17,9 +17,9 @@ const app = express();
 app.use("/invoices", express.static(path.join(__dirname, "invoices")));
 
 // Middlewares here
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(cors(corsOptions));
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: false, limit: "10mb" }));
 app.use(bodyParser.json());
 
 DBConnection();
@@ -41,6 +41,9 @@ require("./models/dbSchema/bookedAppointmentSchema");
 require("./models/dbSchema/customers");
 require("./models/dbSchema/doctorOtpSchema");
 require("./models/dbSchema/SchedulerUrlSchema");
+require("./models/dbSchema/superAdminSchema");
+require("./models/dbSchema/superAdminOtpSchema");
+require("./models/dbSchema/doctorTimeSlotsSchema");
 
 // routes
 app.use("/api", require("./routes/userRoutes"));
@@ -56,6 +59,8 @@ app.use("/api", require("./routes/privacyPolicyRoutes"));
 app.use("/api", require("./routes/blogRoutes"));
 app.use("/api", require("./routes/customerRoutes"));
 app.use("/api", require("./routes/SchedulerUrlRoutes"));
+app.use("/api", require("./routes/superAdminAuthRoutes"));
+app.use("/api", require("./routes/DoctorTimeSlotRoutes"));
 
 // Routes here
 app.get("/hello", (req, res) => {

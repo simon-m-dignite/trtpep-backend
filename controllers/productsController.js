@@ -30,20 +30,14 @@ module.exports.AddProducts = async (req, res) => {
 
 module.exports.UpdateProductById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { _id } = req.params;
     const { therapies, labWork } = req.body;
-    console.table("Update Product api got hit form dashboard >> ", req.body);
-
-    const updatedLabWork = {
-      name: labWork.name,
-      options: labWork.options,
-    };
 
     const updatedEntry = await ProductModal.findByIdAndUpdate(
-      { _id: id },
+      { _id },
       {
         therapies,
-        labWork: updatedLabWork,
+        labWork,
       },
       { new: true, runValidators: true }
     );

@@ -31,6 +31,9 @@ module.exports.GetSchedulerUrl = async (req, res) => {
 
 module.exports.UpdateSchedulerUrl = async (req, res) => {
   const { _id, url } = req.body;
+  console.log(_id);
+  console.log(url);
+  console.log(req.body);
   try {
     const SchedulerUrl = await SchedulerUrlModel.findByIdAndUpdate(
       {

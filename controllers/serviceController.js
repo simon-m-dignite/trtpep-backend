@@ -10,9 +10,10 @@ module.exports.CreateService = async (req, res) => {
       serviceSubtitle,
       price,
       duration,
+      isFreeService,
       timeSlots,
     } = req.body;
-    // console.log("service data >> ", req.body);
+    console.log("service data >> ", req.body);
 
     const isOldService = await ServiceModal.findOne({ serviceSubtitle });
 
@@ -28,6 +29,7 @@ module.exports.CreateService = async (req, res) => {
       serviceSubtitle,
       price: price || 0,
       duration,
+      isFreeService,
       timeSlots,
     });
     res.status(200).send({ message: "Service created successfully." });

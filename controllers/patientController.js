@@ -91,7 +91,11 @@ module.exports.NewPatient = async (req, res) => {
       "patientInfo.email": email,
     });
 
-    if (existingPatient) {
+    const isCustomer = await CustomersModel.findOne({
+      email,
+    });
+
+    if (isCustomer) {
       await CustomersModel.findOneAndUpdate(
         { email: patientInfo.email },
         {

@@ -243,7 +243,7 @@ module.exports.PlaceLabOrder = async (req, res) => {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "Lab Order",
+              name: "Only Lab Order",
             },
             unit_amount: Math.round(amount * 100),
           },
@@ -296,7 +296,7 @@ module.exports.PlaceLabOrder = async (req, res) => {
         email,
         phone,
         address: billingAddress,
-        orderType: "Lab Order",
+        orderType: "LabOrder",
         orderAmount: amount,
         lastOrderDate: Date.now(),
         orders: {
