@@ -11,7 +11,7 @@ module.exports.CreateService = async (req, res) => {
       price,
       duration,
       isFreeService,
-      timeSlots,
+      // timeSlots,
     } = req.body;
     console.log("service data >> ", req.body);
 
@@ -28,9 +28,9 @@ module.exports.CreateService = async (req, res) => {
       serviceTitle,
       serviceSubtitle,
       price: price || 0,
-      duration,
+      serviceDuration: duration,
       isFreeService,
-      timeSlots,
+      // timeSlots,
     });
     res.status(200).send({ message: "Service created successfully." });
   } catch (error) {
@@ -53,9 +53,10 @@ module.exports.GetDoctorServices = async (req, res) => {
       });
     }
 
-    res
-      .status(200)
-      .send({ message: "You haven't created any service till now." });
+    res.status(200).send({
+      message: "You haven't created any service till now.",
+      data: doctorServices,
+    });
   } catch (error) {
     console.log("getDoctorServices error >> ", error);
     res.status(500).send({ message: "Something went wrong.", error });

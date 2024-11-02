@@ -43,7 +43,8 @@ require("./models/dbSchema/doctorOtpSchema");
 require("./models/dbSchema/SchedulerUrlSchema");
 require("./models/dbSchema/superAdminSchema");
 require("./models/dbSchema/superAdminOtpSchema");
-require("./models/dbSchema/doctorTimeSlotsSchema");
+require("./models/dbSchema/doctorTimingSchema");
+require("./models/dbSchema/doctorSlotsSchema");
 
 // routes
 app.use("/api", require("./routes/userRoutes"));

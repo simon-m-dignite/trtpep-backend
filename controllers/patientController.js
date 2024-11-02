@@ -22,7 +22,6 @@ module.exports.NewPatient = async (req, res) => {
   const { firstName, lastName, email, phoneNumber, dob } = patientInfo;
 
   try {
-    // Check if customer exists in Stripe
     let stripeCustomer;
 
     const existingStripeCustomers = await stripe.customers.list({
@@ -33,7 +32,6 @@ module.exports.NewPatient = async (req, res) => {
     if (existingStripeCustomers.data.length > 0) {
       stripeCustomer = existingStripeCustomers.data[0];
     } else {
-      // Create new Stripe customer
       stripeCustomer = await stripe.customers.create({
         name: `${firstName} ${lastName}`,
         email: email,
@@ -49,7 +47,6 @@ module.exports.NewPatient = async (req, res) => {
       });
     }
 
-    // Create a product for the order on Stripe
     const product = await stripe.products.create({
       name: "Patient Form Order",
       description: `Therapies: ${selectedTherapies.map(
@@ -57,14 +54,12 @@ module.exports.NewPatient = async (req, res) => {
       )}. Lab Work: ${selectedLabWork.map((lab) => lab.name)}.`,
     });
 
-    // Create Stripe price object for the product (this is required for a checkout session)
     const price = await stripe.prices.create({
       product: product.id,
       unit_amount: Math.round(amount * 100),
       currency: "usd",
     });
 
-    // Create a Stripe payment session
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomer.id, // Associate session with the customer
       line_items: [
@@ -78,7 +73,6 @@ module.exports.NewPatient = async (req, res) => {
       cancel_url: "http://localhost:5173/new-patient/failed",
     });
 
-    // Save the new patient to the database
     const newPatient = await NewPatientModel.create({
       patient: formData,
       amount,
@@ -128,22 +122,18 @@ module.exports.NewPatient = async (req, res) => {
       await customer.save();
     }
 
-    // Generate the PDF invoice
     const invoiceFileName = `invoice-${newPatient._id}.pdf`;
 
-    // Updated path to store in the main directory
     const invoiceFilePath = path.join(
       __dirname,
       "../invoices",
       invoiceFileName
     );
-    await generateInvoicePDF(invoiceFilePath, newPatient); // Assuming the helper function below
+    await generateInvoicePDF(invoiceFilePath, newPatient);
 
-    // Update the patient record with the invoice path
     newPatient.invoicePath = `/invoices/${invoiceFileName}`;
     await newPatient.save();
 
-    // Send the invoice via email
     await sendEmailWithAttachment({
       to: email,
       subject: "Your Patient Order Invoice",
@@ -156,7 +146,6 @@ module.exports.NewPatient = async (req, res) => {
       ],
     });
 
-    // Respond with success and payment URL
     res.status(200).json({
       success: true,
       message:

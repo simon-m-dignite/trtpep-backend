@@ -8,6 +8,8 @@ const {
   RequestOtp,
   VerifyOtp,
   ResetPassword,
+  AddTimings,
+  GetDoctorTiming,
 } = require("../controllers/doctorController");
 const router = express.Router();
 
@@ -22,5 +24,9 @@ router.post("/doctor/request-new-otp", RequestOtp);
 router.post("/doctor/verify-otp", VerifyOtp);
 
 router.post("/doctor/reset-password", ResetPassword);
+
+router.post("/doctor/create-timing", AddTimings);
+
+router.get("/doctor/doctor-timing/:doctorId", GetDoctorTiming);
 
 module.exports = router;

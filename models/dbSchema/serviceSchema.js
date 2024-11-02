@@ -25,9 +25,9 @@ const EnrollmentSchema = new mongoose.Schema(
       default: "",
     },
     price: { type: Number, required: false, default: 0 },
-    duration: { type: String, required: true },
+    serviceDuration: { type: Number, enum: [30, 60], required: true },
     isFreeService: { type: Boolean, required: true, default: false },
-    timeSlots: { type: [timeSlotSchema], required: true },
+    // timeSlots: { type: [timeSlotSchema], required: true },
   },
   {
     collection: "DoctorServices",

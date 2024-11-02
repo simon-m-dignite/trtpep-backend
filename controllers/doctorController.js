@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.SECRET_KEY;
 const OTPModel = mongoose.model("DoctorOTP");
+const DoctorTimeSlots = mongoose.model("DoctorTimeSlots");
 
 module.exports.AddDoctor = async (req, res) => {
   const { name, email, password, phone } = req.body;
@@ -303,5 +304,64 @@ module.exports.ResetPassword = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Server error", error, status: 500 });
+  }
+};
+
+module.exports.AddTimings = async (req, res) => {
+  const { doctorId, timings } = req.body;
+  try {
+    const savedTimings = [];
+    for (const timing of timings) {
+      const existingTiming = await DoctorTimeSlots.findOne({
+        doctorId,
+        day: timing.day,
+      });
+      const { shiftStartTime, shiftEndTime, breakStartTime, breakDuration } =
+        timing;
+
+      if (existingTiming) {
+        existingTiming.shiftStartTime = shiftStartTime;
+        existingTiming.shiftEndTime = shiftEndTime;
+        existingTiming.breakStartTime = breakStartTime;
+        existingTiming.breakDuration = breakDuration;
+
+        const updatedTiming = await existingTiming.save();
+        savedTimings.push(updatedTiming);
+      } else {
+        const newTiming = await DoctorTimeSlots.create({
+          doctorId,
+          day: timing.day,
+          shiftStartTime,
+          shiftEndTime,
+          breakStartTime,
+          breakDuration,
+        });
+        savedTimings.push(newTiming);
+      }
+    }
+    res.status(200).json({
+      message: "All timings processed successfully",
+      timings: savedTimings,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports.GetDoctorTiming = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    // console.log(doctorId);
+    const doctorTiming = await DoctorTimeSlots.findOne({ doctorId });
+    if (!doctorTiming) {
+      return res.status(404).json({ message: "Timing not found" });
+    }
+    res.status(200).json({ message: "Time slots found", data: doctorTiming });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "An error occurred while fetching doctor time slots",
+      error,
+    });
   }
 };
